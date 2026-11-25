@@ -63,8 +63,8 @@ Kafka husker hvor consumer groupen har lest til. Elever som opprettes mens `elev
 |-----|-----|--------------|
 | Tilkobling | `application.properties` | `jdbc:h2:file:./data/elevdb` – lagres på disk |
 | Tabell | `src/main/resources/db/migration/V1__opprett_elev_tabell.sql` | Flyway-migrering som lager tabellen `elev` |
-| Entity | `model/ElevEntity.kt` | JPA-klassen som tilsvarer én rad i `elev` |
-| Repository | `repository/ElevRepository.kt` | `JpaRepository<ElevEntity, UUID>` – gir `save`, `findById`, `findAll` |
+| Entity | `ElevEntity.kt` | JPA-klassen som tilsvarer én rad i `elev` |
+| Repository | `ElevRepository.kt` | `JpaRepository<ElevEntity, UUID>` – gir `save`, `findById`, `findAll` |
 
 Tabellen `elev`:
 
@@ -130,14 +130,28 @@ eller ▶ ved `fun main` i `ElevServiceApplication.kt` i IntelliJ. Åpne dette r
 - **IntelliJ:** åpne `requests.http` og trykk ▶ ved hver forespørsel.
 - **Enhetstester:** `./gradlew test` – testene bruker en egen H2-database i minnet og starter ikke Kafka-lytteren.
 
+## Kodestil (ktlint)
+
+Koden sjekkes med [ktlint](https://pinterest.github.io/ktlint/) via Gradle-pluginen `org.jlleitschuh.gradle.ktlint`.
+Reglene ligger i `.editorconfig` (stilen `intellij_idea`, samme som *Reformat Code* i IntelliJ).
+
+```bash
+./gradlew ktlintCheck    # viser feil
+./gradlew ktlintFormat   # retter det som kan rettes automatisk
+```
+
+`./gradlew build` kjører `ktlintCheck` automatisk.
+
 ## Struktur
 
+Tjenesten er liten, så alle klassene ligger i én pakke:
+
 ```
-src/main/kotlin/com/example/elev_service/
+src/main/kotlin/com/example/elevservice/
 ├── ElevServiceApplication.kt
-├── consumer/ElevConsumer.kt        – @KafkaListener, JSON -> Elev -> database
-├── controller/ElevController.kt    – GET /elever og GET /elever/{id}
-├── model/Elev.kt                   – det som sendes over Kafka og HTTP
-├── model/ElevEntity.kt             – én rad i tabellen elev
-└── repository/ElevRepository.kt    – JpaRepository
+├── ElevConsumer.kt     – @KafkaListener, JSON -> Elev -> database
+├── ElevController.kt   – GET /elever og GET /elever/{id}
+├── ElevRepository.kt   – JpaRepository
+├── ElevEntity.kt       – én rad i tabellen elev
+└── Elev.kt             – det som sendes over Kafka og HTTP
 ```

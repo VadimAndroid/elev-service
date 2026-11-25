@@ -1,7 +1,5 @@
-package com.example.elev_service
+package com.example.elevservice
 
-import com.example.elev_service.consumer.ElevConsumer
-import com.example.elev_service.repository.ElevRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

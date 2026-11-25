@@ -1,8 +1,5 @@
-package com.example.elev_service.consumer
+package com.example.elevservice
 
-import com.example.elev_service.model.Elev
-import com.example.elev_service.model.ElevEntity
-import com.example.elev_service.repository.ElevRepository
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Component

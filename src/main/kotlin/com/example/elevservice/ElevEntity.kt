@@ -1,4 +1,4 @@
-package com.example.elev_service.model
+package com.example.elevservice
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
