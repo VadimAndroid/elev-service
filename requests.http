@@ -1,0 +1,12 @@
+### Trykk ▶ ved en forespørsel for å kjøre den. Forespørslene er skilt med ###.
+### Disse går rett til elev-service (port 8081), uten om elev-api.
+### Nye elever lages med POST i elev-api – elev-service har ingen POST.
+
+### 1. Hent alle elever fra databasen -> 200
+GET http://localhost:8081/elever
+
+### 2. Ukjent ID -> 404
+GET http://localhost:8081/elever/00000000-0000-0000-0000-000000000000
+
+### 3. Hent én elev -> 200 (lim inn en ID fra forespørsel 1)
+GET http://localhost:8081/elever/LIM-INN-ID-HER
