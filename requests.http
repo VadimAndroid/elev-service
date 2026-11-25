@@ -1,12 +1,14 @@
-### Trykk ▶ ved en forespørsel for å kjøre den. Forespørslene er skilt med ###.
-### Disse går rett til elev-service (port 8081), uten om elev-api.
-### Nye elever lages med POST i elev-api – elev-service har ingen POST.
+### Click ▶ next to a request to run it. Requests are separated by ###.
+### These go straight to elev-service (port 8081). New students are created with POST in elev-api.
 
-### 1. Hent alle elever fra databasen -> 200
+### 1. All students from the database -> 200
 GET http://localhost:8081/elever
 
-### 2. Ukjent ID -> 404
+### 2. Unknown id -> 404
 GET http://localhost:8081/elever/00000000-0000-0000-0000-000000000000
 
-### 3. Hent én elev -> 200 (lim inn en ID fra forespørsel 1)
-GET http://localhost:8081/elever/LIM-INN-ID-HER
+### 3. One student -> 200 (paste an id from request 1)
+GET http://localhost:8081/elever/PASTE-ID-HERE
+
+### 4. Health (also checks the database)
+GET http://localhost:8081/actuator/health

@@ -1,143 +1,114 @@
 # elev-service
 
-En Spring Boot-tjeneste i Kotlin som **leser elever fra Kafka**, lagrer dem i en **H2-database** og tilbyr **GET-endepunkter** for å hente dem.
+[![CI](https://github.com/VadimAndroid/elev-service/actions/workflows/ci.yml/badge.svg?branch=portfolio)](https://github.com/VadimAndroid/elev-service/actions/workflows/ci.yml)
 
-Tjenesten blir kalt av [elev-api](https://github.com/VadimAndroid/elev-api), som er inngangen for klienten.
+A Spring Boot service in Kotlin that **consumes students (*elever*) from Kafka**, stores them in **PostgreSQL**
+and exposes **read endpoints**. It is called by [elev-api](https://github.com/VadimAndroid/elev-api/tree/portfolio), the entry point of the system.
 
-## Rolle i systemet
+> This is the **`portfolio`** branch. The original school assignment (H2 database, Norwegian README) is on `main`.
 
-Systemet består av to **mikrotjenester** i hvert sitt repository:
-
-| Tjeneste | Repository | Port | Ansvar |
-|---|---|---|---|
-| elev-api | [VadimAndroid/elev-api](https://github.com/VadimAndroid/elev-api) | 8080 | Eneste inngang for klienten. Validerer, genererer ID, sender til Kafka, henter fra `elev-service`. |
-| **elev-service** | dette | 8081 | Leser elever fra Kafka og lagrer dem i databasen. Tilbyr GET-endepunkter. |
-| Kafka | `docker-compose.yaml` i elev-api | 9092 | Meldingskø mellom tjenestene. |
-
-```
-Opprette elev (asynkront):
-Klient ──▶ elev-api ──Kafka (topic "elever")──▶ elev-service ──▶ database (H2)
-
-Hente elever (synkront):
-Klient ──▶ elev-api ──HTTP GET──▶ elev-service ──▶ database (H2)
-```
-
-Tjenestene deler **ingen kode**. Hver har sin egen `Elev`-klasse. Det eneste som binder dem sammen, er **kontrakten** under.
-
-## Kontrakt med elev-api
-
-### Kafka (elev-service leser)
-
-| | |
+| Repository | Role |
 |---|---|
-| Topic | `elever` |
-| Consumer group | `elev-service` |
-| Nøkkel | elevens ID (UUID som tekst) |
-| Verdi | JSON: `{ "id": "<uuid>", "navn": "<tekst>", "klasse": "<tekst>" }` |
+| [elev-api](https://github.com/VadimAndroid/elev-api/tree/portfolio) | entry point for clients, port 8080 |
+| **elev-service** (this) | stores students in PostgreSQL, port 8081 |
+| [elev-infra](https://github.com/VadimAndroid/elev-infra) | `docker-compose.yaml` for Kafka, PostgreSQL and both services, architecture overview |
 
-ID-en fra meldingen brukes som den er. `elev-service` genererer **ikke** en ny ID.
+## Tech stack
 
-### HTTP (elev-service svarer)
+Kotlin 2.3 · Java 25 · Spring Boot 4.1 · Spring Kafka · Spring Data JPA / Hibernate · PostgreSQL 17 · Flyway ·
+Spring Boot Actuator · JUnit 5 · MockMvc · Testcontainers · Awaitility · Docker · GitHub Actions
 
-| Metode | Sti | Svar |
+## API
+
+| Method | Path | Response |
+|--------|------|----------|
+| GET | `/elever` | `200` with all students from the database (possibly `[]`) |
+| GET | `/elever/{id}` | `200` · `404` if not in the database |
+| GET | `/actuator/health` | `200` when the app and the database are up |
+
+There is **no POST**. New students arrive only through Kafka.
+
+## Contract with elev-api
+
+| Channel | Direction | Details |
 |---|---|---|
-| GET | `/elever` | `200` med alle elever fra databasen (eventuelt `[]`) |
-| GET | `/elever/{id}` | `200` med eleven · `404` hvis den ikke finnes |
+| Kafka topic `elever`, consumer group `elev-service` | elev-api → elev-service | key: student id (UUID as text) · value: `{"id":"<uuid>","navn":"<text>","klasse":"<text>"}` |
+| Kafka topic `elever.DLT` | elev-service | messages that could not be processed |
+| HTTP `GET /elever[/{id}]` | elev-api → elev-service | `200` with JSON, or `404` |
 
-`elev-service` har **ingen POST**. Nye elever kommer bare fra Kafka.
+The id from the message is used as is – `elev-service` never generates a new one.
+The services share **no code**. Each has its own `Elev` class; only the JSON format binds them.
 
-## Slik fungerer mottaket
+## Design decisions
 
-1. `@KafkaListener` lytter på topicen `elever` i consumer group `elev-service`.
-2. Meldingen leses som tekst og gjøres om til en `Elev` med Jackson.
-3. Eleven lagres i databasen med samme ID.
-4. ID-en logges etter at lagringen er fullført.
+### Database and migrations
 
-Kafka husker hvor consumer groupen har lest til. Elever som opprettes mens `elev-service` er nede, blir lest og lagret når den starter igjen.
+- The schema is created by **Flyway** (`src/main/resources/db/migration/V1__opprett_elev_tabell.sql`), not by Hibernate.
+  Hibernate runs with `ddl-auto=validate` and only checks that `ElevEntity` matches the table.
+- An applied migration is never edited (Flyway detects it by checksum). Schema changes go in a new `V2__...sql`.
+- `ElevEntity` (JPA, mutable) is kept separate from `Elev` (immutable data class used in JSON).
 
-## Database
+### No duplicates (idempotent consumer)
 
-`elev-service` bruker **H2** med **fillagring** og **Spring Data JPA**, så elevene finnes også etter omstart.
+Kafka delivers **at least once**, so the same message can be read twice. The id is the **primary key**,
+so `save()` does `INSERT` if the student is new and `UPDATE` if it exists. There can only be one row per id.
 
-| Del | Fil | Hva den gjør |
-|-----|-----|--------------|
-| Tilkobling | `application.properties` | `jdbc:h2:file:./data/elevdb` – lagres på disk |
-| Tabell | `src/main/resources/db/migration/V1__opprett_elev_tabell.sql` | Flyway-migrering som lager tabellen `elev` |
-| Entity | `model/ElevEntity.kt` | JPA-klassen som tilsvarer én rad i `elev` |
-| Repository | `repository/ElevRepository.kt` | `JpaRepository<ElevEntity, UUID>` – gir `save`, `findById`, `findAll` |
+### Error handling: Dead Letter Topic
 
-Tabellen `elev`:
+A message that can never be processed (a *poison pill*, e.g. broken JSON) must not block the partition.
+`KafkaConfig` sets up a `DefaultErrorHandler`:
 
-| Kolonne  | Type           | Merknad |
-|----------|----------------|---------|
-| `id`     | `UUID`         | Primærnøkkel. Kommer fra Kafka-meldingen. |
-| `navn`   | `VARCHAR(255)` | `NOT NULL` |
-| `klasse` | `VARCHAR(255)` | `NOT NULL` |
+- temporary errors (e.g. the database is down for a moment) are retried **3 times, 1 second apart**
+- JSON errors are **not retried**, because they will never succeed
+- after that, the message is published unchanged to **`elever.DLT`**, and the consumer continues with the next message
 
-Databasefilen ligger i `data/elevdb.mv.db`. Mappen `data/` er i `.gitignore`, fordi den inneholder data og ikke kode.
+## Configuration
 
-### Migreringer med Flyway
+| Variable | Local default | In Docker |
+|----------|---------------|-----------|
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | `kafka:29092` |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/elevdb` | `jdbc:postgresql://postgres:5432/elevdb` |
+| `DB_USER` / `DB_PASSWORD` | `elev` / `elev` | `elev` / `elev` |
 
-Tabellene lages av **Flyway**, ikke av Hibernate. Hibernate står på `ddl-auto=validate` og sjekker bare at `ElevEntity` stemmer med tabellen.
+## Running
 
-- En migrering som allerede er kjørt, skal **ikke** endres.
-- Endringer i skjemaet gjøres med en ny fil, for eksempel `V2__legg_til_epost.sql`.
-
-### Ingen duplikater
-
-Samme melding kan bli lest flere ganger fra Kafka. Siden `id` er primærnøkkel og kommer fra meldingen, blir `save()` en `UPDATE` hvis eleven finnes fra før. Det kan derfor bare finnes én rad per elev-ID.
-
-### Se innholdet i databasen
-
-1. Start `elev-service`.
-2. Åpne <http://localhost:8081/h2-console>
-3. Logg inn med **JDBC URL** `jdbc:h2:file:./data/elevdb`, **User Name** `sa`, tomt passord.
-4. Kjør for eksempel `SELECT * FROM elev;`
-
-**Starte med tom database:** stopp `elev-service` og slett mappen `data/`.
-
-## Konfigurasjon
-
-`src/main/resources/application.properties`:
-
-```properties
-server.port=8081
-spring.kafka.bootstrap-servers=localhost:9092
-spring.kafka.consumer.group-id=elev-service
-spring.kafka.consumer.auto-offset-reset=earliest
-elev.kafka.topic=elever
-spring.datasource.url=jdbc:h2:file:./data/elevdb
-```
-
-## Kjøre
-
-**Forutsetninger:** Java 25, Docker Desktop.
-
-**1. Start Kafka** – med `docker compose up -d` i [elev-api](https://github.com/VadimAndroid/elev-api).
-
-**2. Start elev-service:**
+Start Kafka and PostgreSQL from [elev-infra](https://github.com/VadimAndroid/elev-infra) (`docker compose up -d`), then:
 
 ```bash
 ./gradlew bootRun
 ```
 
-eller ▶ ved `fun main` i `ElevServiceApplication.kt` i IntelliJ. Åpne dette repoet som et eget prosjekt, så er arbeidsmappen riktig og databasefilen havner i `data/` her.
+or ▶ next to `fun main` in `ElevServiceApplication.kt`. `requests.http` contains ready-made requests for IntelliJ.
+To run everything in Docker, see [elev-infra](https://github.com/VadimAndroid/elev-infra).
 
-**3. Start elev-api** – se README i [elev-api](https://github.com/VadimAndroid/elev-api).
+## Tests
 
-## Teste
+```bash
+./gradlew test      # needs Docker (Testcontainers)
+```
 
-- **IntelliJ:** åpne `requests.http` og trykk ▶ ved hver forespørsel.
-- **Enhetstester:** `./gradlew test` – testene bruker en egen H2-database i minnet og starter ikke Kafka-lytteren.
+Integration tests with **Testcontainers** (real PostgreSQL + Kafka): Kafka message → database → GET ·
+the same message twice gives one row · a broken message goes to the DLT and does not block the next one ·
+empty list · 404. The containers are started by the tests and never touch the compose database.
 
-## Struktur
+## Docker image
+
+Multi-stage `Dockerfile`: the jar is built with Gradle in `eclipse-temurin:25-jdk` and runs in the smaller
+`eclipse-temurin:25-jre` as a non-root user.
+
+## CI
+
+`.github/workflows/ci.yml` runs `./gradlew test` on every push and pull request (Testcontainers uses Docker on the runner),
+and then checks that the Docker image builds.
+
+## Structure
 
 ```
 src/main/kotlin/com/example/elev_service/
-├── ElevServiceApplication.kt
-├── consumer/ElevConsumer.kt        – @KafkaListener, JSON -> Elev -> database
-├── controller/ElevController.kt    – GET /elever og GET /elever/{id}
-├── model/Elev.kt                   – det som sendes over Kafka og HTTP
-├── model/ElevEntity.kt             – én rad i tabellen elev
-└── repository/ElevRepository.kt    – JpaRepository
+├── config/KafkaConfig.kt          – DefaultErrorHandler, retries and Dead Letter Topic
+├── consumer/ElevConsumer.kt       – @KafkaListener, JSON -> Elev -> database
+├── controller/ElevController.kt   – GET /elever and GET /elever/{id}
+├── model/Elev.kt                  – the JSON contract
+├── model/ElevEntity.kt            – one row in the table elev
+└── repository/ElevRepository.kt   – JpaRepository
 ```
