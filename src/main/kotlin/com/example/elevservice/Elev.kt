@@ -1,4 +1,4 @@
-package com.example.elev_service.model
+package com.example.elevservice
 
 import java.util.UUID
 

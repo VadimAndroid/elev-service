@@ -1,4 +1,4 @@
-package com.example.elev_service.config
+package com.example.elevservice
 
 import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.common.TopicPartition
@@ -44,7 +44,10 @@ class KafkaConfig(
         val recoverer = DeadLetterPublishingRecoverer(kafkaTemplate) { record, exception ->
             log.error(
                 "Sender melding til {}.DLT etter feil: {} (partition {}, offset {})",
-                record.topic(), (exception.cause ?: exception).message, record.partition(), record.offset(),
+                record.topic(),
+                (exception.cause ?: exception).message,
+                record.partition(),
+                record.offset(),
             )
             // Partition -1: let Kafka choose the partition in the DLT.
             TopicPartition("${record.topic()}.DLT", -1)

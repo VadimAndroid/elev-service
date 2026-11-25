@@ -1,4 +1,4 @@
-package com.example.elev_service
+package com.example.elevservice
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
@@ -7,5 +7,5 @@ import org.springframework.boot.runApplication
 class ElevServiceApplication
 
 fun main(args: Array<String>) {
-	runApplication<ElevServiceApplication>(*args)
+    runApplication<ElevServiceApplication>(*args)
 }

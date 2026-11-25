@@ -1,6 +1,5 @@
-package com.example.elev_service.repository
+package com.example.elevservice
 
-import com.example.elev_service.model.ElevEntity
 import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 

@@ -1,6 +1,5 @@
-package com.example.elev_service
+package com.example.elevservice
 
-import com.example.elev_service.repository.ElevRepository
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -49,8 +48,7 @@ class ElevServiceApplicationTests {
         elevRepository.deleteAll()
     }
 
-    private fun melding(id: UUID, navn: String, klasse: String) =
-        """{"id":"$id","navn":"$navn","klasse":"$klasse"}"""
+    private fun melding(id: UUID, navn: String, klasse: String) = """{"id":"$id","navn":"$navn","klasse":"$klasse"}"""
 
     private fun send(id: UUID, json: String) {
         kafkaTemplate.send(topic, id.toString(), json).get()

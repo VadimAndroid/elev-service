@@ -1,7 +1,5 @@
-package com.example.elev_service.controller
+package com.example.elevservice
 
-import com.example.elev_service.model.Elev
-import com.example.elev_service.repository.ElevRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping

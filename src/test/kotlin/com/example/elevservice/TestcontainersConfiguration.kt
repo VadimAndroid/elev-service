@@ -1,4 +1,4 @@
-package com.example.elev_service
+package com.example.elevservice
 
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
@@ -19,11 +19,9 @@ class TestcontainersConfiguration {
 
     @Bean
     @ServiceConnection
-    fun postgres(): PostgreSQLContainer =
-        PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"))
+    fun postgres(): PostgreSQLContainer = PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"))
 
     @Bean
     @ServiceConnection
-    fun kafka(): KafkaContainer =
-        KafkaContainer(DockerImageName.parse("apache/kafka:4.3.1"))
+    fun kafka(): KafkaContainer = KafkaContainer(DockerImageName.parse("apache/kafka:4.3.1"))
 }

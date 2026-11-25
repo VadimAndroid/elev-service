@@ -15,7 +15,7 @@ and exposes **read endpoints**. It is called by [elev-api](https://github.com/Va
 
 ## Tech stack
 
-Kotlin 2.3 · Java 25 · Spring Boot 4.1 · Spring Kafka · Spring Data JPA / Hibernate · PostgreSQL 17 · Flyway ·
+Kotlin 2.3 · Java 25 · Spring Boot 4.1 · ktlint · Spring Kafka · Spring Data JPA / Hibernate · PostgreSQL 17 · Flyway ·
 Spring Boot Actuator · JUnit 5 · MockMvc · Testcontainers · Awaitility · Docker · GitHub Actions
 
 ## API
@@ -101,14 +101,29 @@ Multi-stage `Dockerfile`: the jar is built with Gradle in `eclipse-temurin:25-jd
 `.github/workflows/ci.yml` runs `./gradlew test` on every push and pull request (Testcontainers uses Docker on the runner),
 and then checks that the Docker image builds.
 
+## Code style (ktlint)
+
+Checked with [ktlint](https://pinterest.github.io/ktlint/) 1.8 through the Gradle plugin `org.jlleitschuh.gradle.ktlint`.
+Rules are in `.editorconfig` (style `intellij_idea`, the same as *Reformat Code* in IntelliJ).
+
+```bash
+./gradlew ktlintCheck    # report violations
+./gradlew ktlintFormat   # fix what can be fixed automatically
+```
+
+`./gradlew build` runs `ktlintCheck` as part of `check`.
+
 ## Structure
 
+The service is small, so all classes are in one package:
+
 ```
-src/main/kotlin/com/example/elev_service/
-├── config/KafkaConfig.kt          – DefaultErrorHandler, retries and Dead Letter Topic
-├── consumer/ElevConsumer.kt       – @KafkaListener, JSON -> Elev -> database
-├── controller/ElevController.kt   – GET /elever and GET /elever/{id}
-├── model/Elev.kt                  – the JSON contract
-├── model/ElevEntity.kt            – one row in the table elev
-└── repository/ElevRepository.kt   – JpaRepository
+src/main/kotlin/com/example/elevservice/
+├── ElevServiceApplication.kt
+├── ElevConsumer.kt     – @KafkaListener, JSON -> Elev -> database
+├── KafkaConfig.kt      – DefaultErrorHandler, retries and Dead Letter Topic
+├── ElevController.kt   – GET /elever and GET /elever/{id}
+├── ElevRepository.kt   – JpaRepository
+├── ElevEntity.kt       – one row in the table elev
+└── Elev.kt             – the JSON contract
 ```
